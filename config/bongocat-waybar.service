@@ -1,0 +1,12 @@
+[Unit]
+Description=Bongocat Waybar Daemon
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.config/bongocat/bongocat-waybar
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=graphical-session.target

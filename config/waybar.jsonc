@@ -1,0 +1,14 @@
+{
+  "group/bongocat": {
+    "orientation": "horizontal",
+    "modules": [
+      "custom/bongocat-count"
+    ]
+  },
+  "custom/bongocat-count": {
+    "exec": "jq -r .text ~/.local/share/bongocat/state.json",
+    "signal": 10,
+    "return-type": "",
+    "on-click": "pkill -USR1 bongocat-waybar"
+  }
+}

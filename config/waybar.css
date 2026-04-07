@@ -1,0 +1,10 @@
+#bongocat {
+  background: #000000;
+  border-radius: 15px;
+  margin-left: 5px;
+  padding: 0 10px;
+}
+
+#custom-bongocat-count {
+  padding: 0 2px;
+}
