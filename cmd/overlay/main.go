@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"slices"
 	"syscall"
 
@@ -19,24 +18,11 @@ import (
 	"github.com/chazzy/bongocat/internal/evdev"
 )
 
-var animDir = filepath.Join(os.Getenv("HOME"), ".config", "bongocat", "animations")
-
 func main() {
 	log.SetFlags(0)
 
-	animName := flag.String("animation", "bongocat", "animation set name")
-	sizeOverride := flag.Int("size", 0, "override window size in pixels")
+	winSize := flag.Int("size", 200, "window size in pixels")
 	flag.Parse()
-
-	mf, err := loadManifest(filepath.Join(animDir, *animName))
-	if err != nil {
-		log.Fatalf("load manifest: %v", err)
-	}
-
-	winSize := mf.FrameWidth
-	if *sizeOverride > 0 {
-		winSize = *sizeOverride
-	}
 
 	keyboards, mice := evdev.DetectDevices()
 	if len(keyboards) == 0 && len(mice) == 0 {
@@ -75,7 +61,7 @@ func main() {
 	app.ConnectActivate(func() {
 		win := gtk.NewApplicationWindow(app)
 		win.SetTitle("bongocat")
-		win.SetDefaultSize(winSize, winSize)
+		win.SetDefaultSize(*winSize, *winSize)
 		win.SetDecorated(false)
 
 		css := gtk.NewCSSProvider()
@@ -86,18 +72,14 @@ func main() {
 			uint(gtk.STYLE_PROVIDER_PRIORITY_APPLICATION),
 		)
 
-		rend, err := newRenderer(mf)
-		if err != nil {
-			log.Fatalf("init renderer: %v", err)
-		}
-
+		rend := newRenderer()
 		st := newState()
 
 		area := gtk.NewDrawingArea()
-		area.SetContentWidth(winSize)
-		area.SetContentHeight(winSize)
+		area.SetContentWidth(*winSize)
+		area.SetContentHeight(*winSize)
 		area.SetDrawFunc(func(_ *gtk.DrawingArea, cr *cairo.Context, w, h int) {
-			rend.draw(cr, st.current(), w, h)
+			rend.draw(cr, st.entries(), w, h)
 		})
 
 		win.SetChild(area)
@@ -119,39 +101,24 @@ func main() {
 		go func() {
 			for ev := range events {
 				glib.IdleAdd(func() {
-					prev := st.current()
-					switch ev.Code {
-					case evdev.BtnLeft:
-						st.onLeftClick()
-					case evdev.BtnRight:
-						st.onRightClick()
-					default:
-						st.onKey()
-					}
-					if st.current() != prev {
-						rend.reset()
-					}
+					name := evdev.KeyName(ev.Code)
+					isMouse := ev.Code == evdev.BtnLeft || ev.Code == evdev.BtnRight
+					st.push(name, isMouse)
 					area.QueueDraw()
 				})
 			}
 		}()
 
-		// Animation frame timer + idle check (~60 ticks/sec)
+		// Idle check timer (~60 ticks/sec)
 		glib.TimeoutAdd(16, func() bool {
-			prev := st.current()
-			st.tick()
-			if st.current() != prev {
-				rend.reset()
-				area.QueueDraw()
-			} else if st.current() != stateIdle {
-				rend.advance()
+			if st.tick() {
 				area.QueueDraw()
 			}
 			return true
 		})
 
 		win.Show()
-		fmt.Printf("overlay: %dx%d animation=%s\n", winSize, winSize, mf.Name)
+		fmt.Printf("overlay: %dx%d\n", *winSize, *winSize)
 	})
 
 	if code := app.Run(os.Args); code > 0 {
