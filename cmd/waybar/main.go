@@ -12,6 +12,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/chazzy/bongocat/internal/evdev"
 )
 
 const (
@@ -131,9 +133,6 @@ func writeState(mode string, session int64, lt lifetimeData, leftClicks, rightCl
 	os.Rename(tmp, stateFile())
 }
 
-// signalWaybar sends SIGRTMIN+10 to all waybar processes, causing them
-// to re-read the custom module's output file. This is the mechanism
-// waybar uses for on-demand refresh without polling.
 func signalWaybar() {
 	exec.Command("pkill", fmt.Sprintf("-RTMIN+%d", waybarSignal), "waybar").Run()
 }
@@ -142,7 +141,7 @@ func main() {
 	log.SetFlags(0)
 	os.MkdirAll(dataDir, 0755)
 
-	keyboards, mice := detectDevices()
+	keyboards, mice := evdev.DetectDevices()
 	if len(keyboards) == 0 {
 		log.Fatal("No keyboard devices detected")
 	}
@@ -150,10 +149,10 @@ func main() {
 		log.Fatal("No mouse devices detected")
 	}
 	for _, d := range keyboards {
-		log.Printf("keyboard: %s (%s)", d.name, d.path)
+		log.Printf("keyboard: %s (%s)", d.Name, d.Path)
 	}
 	for _, d := range mice {
-		log.Printf("mouse:    %s (%s)", d.name, d.path)
+		log.Printf("mouse:    %s (%s)", d.Name, d.Path)
 	}
 
 	lt := loadLifetime()
@@ -164,17 +163,17 @@ func main() {
 	writeState(mode, session, lt, leftClicks, rightClicks)
 	signalWaybar()
 
-	events := make(chan keyEvent, 256)
+	events := make(chan evdev.KeyEvent, 256)
 
 	var devices []*os.File
 	for _, d := range slices.Concat(keyboards, mice) {
-		f, err := openDevice(d.path)
+		f, err := evdev.OpenDevice(d.Path)
 		if err != nil {
-			log.Printf("warning: cannot open %s: %v", d.path, err)
+			log.Printf("warning: cannot open %s: %v", d.Path, err)
 			continue
 		}
 		devices = append(devices, f)
-		go readDevice(f, events)
+		go evdev.ReadDevice(f, events)
 	}
 	defer func() {
 		for _, f := range devices {
@@ -218,11 +217,11 @@ func main() {
 			signalWaybar()
 
 		case ev := <-events:
-			switch ev.code {
-			case btnLeft:
+			switch ev.Code {
+			case evdev.BtnLeft:
 				leftClicks++
 				lt.Left++
-			case btnRight:
+			case evdev.BtnRight:
 				rightClicks++
 				lt.Right++
 			default:
