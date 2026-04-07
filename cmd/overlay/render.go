@@ -47,6 +47,13 @@ func (r *renderer) draw(cr *cairo.Context, entries []keyEntry, w, h int) {
 func (r *renderer) drawKey(cr *cairo.Context, name string, w, y, fontSize, opacity float64) {
 	cr.SetFontSize(fontSize)
 	ext := cr.TextExtents(name)
+	// Shrink font if text is wider than 90% of the window
+	maxW := w * 0.9
+	if ext.Width > maxW {
+		fontSize *= maxW / ext.Width
+		cr.SetFontSize(fontSize)
+		ext = cr.TextExtents(name)
+	}
 	x := (w - ext.Width) / 2 - ext.XBearing
 	cr.MoveTo(x, y)
 	cr.SetSourceRGBA(1, 1, 1, opacity)
