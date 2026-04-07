@@ -1,56 +1,96 @@
 package main
 
 import (
-	"fmt"
+	"math"
 
 	"github.com/diamondburned/gotk4/pkg/cairo"
-	"github.com/diamondburned/gotk4/pkg/gdk/v4"
-	"github.com/diamondburned/gotk4/pkg/gdkpixbuf/v2"
 )
 
-type renderer struct {
-	sheet    *gdkpixbuf.Pixbuf
-	manifest *manifest
-	frame    int
+type renderer struct{}
+
+func newRenderer() *renderer {
+	return &renderer{}
 }
 
-func newRenderer(mf *manifest) (*renderer, error) {
-	sheet, err := gdkpixbuf.NewPixbufFromFile(mf.SpritePath)
-	if err != nil {
-		return nil, fmt.Errorf("load sprite sheet %s: %w", mf.SpritePath, err)
-	}
-	return &renderer{sheet: sheet, manifest: mf}, nil
-}
-
-func (r *renderer) draw(cr *cairo.Context, st animState, w, h int) {
-	spec, ok := r.manifest.States[st.String()]
-	if !ok {
+func (r *renderer) draw(cr *cairo.Context, entries []keyEntry, w, h int) {
+	if len(entries) == 0 {
 		return
 	}
 
-	frameIdx := r.frame % spec.Frames
-	srcX := frameIdx * r.manifest.FrameWidth
-	srcY := spec.Row * r.manifest.FrameHeight
+	cr.SelectFontFace("monospace", cairo.FontSlantNormal, cairo.FontWeightBold)
 
-	sub := r.sheet.NewSubpixbuf(srcX, srcY, r.manifest.FrameWidth, r.manifest.FrameHeight)
-	if sub == nil {
-		return
+	fontSize := float64(h) * 0.5
+	opacity := 1.0
+	y := float64(h) * 0.45
+
+	for i, entry := range entries {
+		if entry.isMouse {
+			r.drawMouse(cr, entry.name, float64(w), y, fontSize, opacity)
+		} else {
+			r.drawKey(cr, entry.name, float64(w), y, fontSize, opacity)
+		}
+
+		if i == 0 {
+			y += fontSize * 0.7
+		} else {
+			y += fontSize * 0.6
+		}
+		fontSize *= 0.7
+		opacity *= 0.6
+
+		if y > float64(h) {
+			break
+		}
 	}
-
-	if r.manifest.FrameWidth != w || r.manifest.FrameHeight != h {
-		sub = sub.ScaleSimple(w, h, gdkpixbuf.InterpNearest)
-	}
-
-	gdk.CairoSetSourcePixbuf(cr, sub, 0, 0)
-	cr.Paint()
 }
 
-func (r *renderer) advance() bool {
-	old := r.frame
-	r.frame++
-	return r.frame != old
+func (r *renderer) drawKey(cr *cairo.Context, name string, w, y, fontSize, opacity float64) {
+	cr.SetFontSize(fontSize)
+	ext := cr.TextExtents(name)
+	x := (w - ext.Width) / 2 - ext.XBearing
+	cr.MoveTo(x, y)
+	cr.SetSourceRGBA(1, 1, 1, opacity)
+	cr.ShowText(name)
 }
 
-func (r *renderer) reset() {
-	r.frame = 0
+func (r *renderer) drawMouse(cr *cairo.Context, name string, w, y, fontSize, opacity float64) {
+	mw := fontSize * 0.5
+	mh := fontSize * 0.75
+	x := (w - mw) / 2
+	top := y - mh*0.7
+	radius := mw * 0.25
+
+	cr.SetLineWidth(2)
+
+	cr.NewPath()
+	cr.Arc(x+mw-radius, top+radius, radius, -math.Pi/2, 0)
+	cr.Arc(x+mw-radius, top+mh-radius, radius, 0, math.Pi/2)
+	cr.Arc(x+radius, top+mh-radius, radius, math.Pi/2, math.Pi)
+	cr.Arc(x+radius, top+radius, radius, math.Pi, 3*math.Pi/2)
+	cr.ClosePath()
+	cr.SetSourceRGBA(1, 1, 1, opacity*0.4)
+	cr.FillPreserve()
+	cr.SetSourceRGBA(1, 1, 1, opacity)
+	cr.Stroke()
+
+	mid := x + mw/2
+	split := top + mh*0.45
+	cr.MoveTo(mid, top+radius*0.5)
+	cr.LineTo(mid, split)
+	cr.SetSourceRGBA(1, 1, 1, opacity)
+	cr.Stroke()
+
+	cr.MoveTo(x+radius*0.5, split)
+	cr.LineTo(x+mw-radius*0.5, split)
+	cr.Stroke()
+
+	if name == "LMB" {
+		cr.Rectangle(x+radius*0.5, top+radius*0.5, mw/2-radius*0.5, split-top-radius*0.5)
+		cr.SetSourceRGBA(1, 1, 1, opacity*0.8)
+		cr.Fill()
+	} else if name == "RMB" {
+		cr.Rectangle(mid, top+radius*0.5, mw/2-radius*0.5, split-top-radius*0.5)
+		cr.SetSourceRGBA(1, 1, 1, opacity*0.8)
+		cr.Fill()
+	}
 }
