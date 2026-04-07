@@ -1,0 +1,12 @@
+[Unit]
+Description=Bongocat Overlay
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.config/bongocat/bongocat-overlay
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=graphical-session.target
