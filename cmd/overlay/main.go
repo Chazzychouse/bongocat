@@ -121,7 +121,7 @@ func main() {
 		fmt.Printf("overlay: %dx%d\n", *winSize, *winSize)
 	})
 
-	if code := app.Run(os.Args); code > 0 {
+	if code := app.Run([]string{os.Args[0]}); code > 0 {
 		os.Exit(code)
 	}
 }
