@@ -70,7 +70,7 @@ func main() {
 		log.Fatal("No devices could be opened")
 	}
 
-	app := gtk.NewApplication("bongocat", gio.ApplicationFlagsNone)
+	app := gtk.NewApplication("com.github.bongocat", gio.ApplicationFlagsNone)
 
 	app.ConnectActivate(func() {
 		win := gtk.NewApplicationWindow(app)
