@@ -39,9 +39,11 @@ func TestMouseButtons(t *testing.T) {
 		t.Errorf("left click = %v, want left_paw", s.current())
 	}
 
-	s.onRightClick()
-	if s.current() != stateRightPaw {
-		t.Errorf("right click = %v, want right_paw", s.current())
+	// Reset to idle before testing right click independently
+	s2 := newState()
+	s2.onRightClick()
+	if s2.current() != stateRightPaw {
+		t.Errorf("right click = %v, want right_paw", s2.current())
 	}
 }
 

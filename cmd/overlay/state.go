@@ -44,10 +44,7 @@ func newState() *state {
 }
 
 func (s *state) current() animState {
-	st := s.st
-	s.leftHeld = false
-	s.rightHeld = false
-	return st
+	return s.st
 }
 
 func (s *state) onKey() {
